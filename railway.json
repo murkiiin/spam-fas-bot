@@ -1,9 +1,0 @@
-
-{
-  "build": {
-    "builder": "Docker"
-  },
-  "deploy": {
-    "startCommand": "python spam_complaint_bot.py"
-  }
-}
