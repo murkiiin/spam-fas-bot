@@ -10,6 +10,7 @@ from datetime import datetime
 from typing import Optional
 
 from aiogram import Bot, Dispatcher, F, Router, types
+from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 from aiogram.filters import Command
@@ -85,7 +86,7 @@ if not BOT_TOKEN:
     raise RuntimeError("Set BOT_TOKEN env var")
 
 bot = Bot(BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
-dp = Dispatcher()
+dp = Dispatcher(storage=MemoryStorage())
 router = Router()
 dp.include_router(router)
 
@@ -238,6 +239,8 @@ if __name__ == "__main__":
 
 # ---------- mailto integration ----------
 from mailto_link import generate_mailto
+from google_sheets import append_complaint
+from notification_utils import notify_admin, search_complaints_by_phone, export_complaints_to_excel
 
 @router.message(Command("ссылка"))
 async def mailto_link_test(message: types.Message):
@@ -269,3 +272,35 @@ async def mailto_link_test(message: types.Message):
 
     mailto = generate_mailto(region_email, "Жалоба на рекламу без согласия", text)
     await message.answer(f"Ссылка для отправки жалобы в УФАС:\n<a href='{mailto}'>Отправить e-mail</a>", parse_mode="HTML")
+
+
+@router.message(Command("поиск"))
+async def search_handler(message: types.Message):
+    if message.from_user.id != 111397886:
+        await message.answer("⛔ Эта команда доступна только администратору.")
+        return
+    query = message.text.replace("/поиск", "").strip()
+    if not query:
+        await message.answer("Введите номер телефона или его часть, например:\n/поиск 900")
+        return
+    try:
+        df = search_complaints_by_phone(query)
+        if df.empty:
+            await message.answer("Жалоб с таким номером не найдено.")
+        else:
+            text = "\n".join([f"{row['Тип']} {row['Номер']} {row['Дата/время']}" for _, row in df.iterrows()])
+            await message.answer(f"🔍 Найдено жалоб: {len(df)}\n\n{text}")
+    except Exception as e:
+        await message.answer(f"Ошибка поиска: {str(e)}")
+
+
+@router.message(Command("экспорт"))
+async def export_handler(message: types.Message):
+    if message.from_user.id != 111397886:
+        await message.answer("⛔ Эта команда доступна только администратору.")
+        return
+    try:
+        path = export_complaints_to_excel()
+        await message.answer_document(FSInputFile(path), caption="📄 Экспорт всех жалоб в Excel")
+    except Exception as e:
+        await message.answer(f"Ошибка при экспорте: {str(e)}")
