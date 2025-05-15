@@ -1,0 +1,6 @@
+aiogram>=3.4
+fpdf>=1.7
+gspread
+oauth2client
+pandas
+openpyxl
