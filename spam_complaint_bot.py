@@ -304,3 +304,21 @@ async def export_handler(message: types.Message):
         await message.answer_document(FSInputFile(path), caption="📄 Экспорт всех жалоб в Excel")
     except Exception as e:
         await message.answer(f"Ошибка при экспорте: {str(e)}")
+
+
+@router.message(F.text == "📝 Заполнить данные заявителя")
+async def handle_button_data(message: types.Message, state: FSMContext):
+    await cmd_data(message, state)
+
+
+@router.message(F.text == "📨 Подать жалобу")
+async def handle_button_complaint(message: types.Message, state: FSMContext):
+    conn = get_db()
+    user = conn.execute("SELECT * FROM users WHERE telegram_id=?", (message.from_user.id,)).fetchone()
+    
+    if not user or not all([user["fio"], user["address"], user["email"], user["phone"], user["region"]]):
+        await message.answer("❗️Перед подачей жалобы необходимо заполнить все данные заявителя (ФИО, адрес, email, телефон, регион).")
+        return
+
+        return
+    await cmd_complaint(message, state)
